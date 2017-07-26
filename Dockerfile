@@ -1,32 +1,23 @@
-#
-# Nginx Dockerfile
-#
-# https://github.com/dockerfile/nginx
-#
+FROM registry.access.redhat.com/rhel7:latest
 
-# Pull base image.
-FROM dockerfile/ubuntu
+MAINTAINER NGINX Docker Maintainers "docker-maint@nginx.com"
 
-# Install Nginx.
-RUN \
-  add-apt-repository -y ppa:nginx/stable && \
-  apt-get update && \
-  apt-get install -y nginx && \
-  rm -rf /var/lib/apt/lists/* && \
-  echo "\ndaemon off;" >> /etc/nginx/nginx.conf && \
-  chown -R www-data:www-data /var/lib/nginx \
-  && chmod -R 777 /var/log/nginx /var/cache/nginx/ \
-     && chmod 644 /etc/nginx/*
+ENV NGINX_VERSION 1.9.2-1.el7.ngx
 
-# Define mountable directories.
-VOLUME ["/etc/nginx/sites-enabled", "/etc/nginx/certs", "/etc/nginx/conf.d", "/var/log/nginx", "/var/www/html"]
+ADD nginx.repo /etc/yum.repos.d/nginx.repo
 
-# Define working directory.
-WORKDIR /etc/nginx
+RUN curl -sO http://nginx.org/keys/nginx_signing.key && \
+    rpm --import ./nginx_signing.key && \
+    yum install -y nginx-${NGINX_VERSION} && \
+    yum clean all && \
+    rm -f ./nginx_signing.key
 
-# Define default command.
-CMD ["nginx"]
+# forward request and error logs to docker log collector
+RUN ln -sf /dev/stdout /var/log/nginx/access.log
+RUN ln -sf /dev/stderr /var/log/nginx/error.log
 
-# Expose ports.
-EXPOSE 80
-EXPOSE 443
+VOLUME ["/var/cache/nginx"]
+
+EXPOSE 80 443
+
+CMD ["nginx", "-g", "daemon off;"]
